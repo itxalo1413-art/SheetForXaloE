@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler
 
 # --- CẤU HÌNH ---
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-SPREADSHEET_ID = "1x8uh0CovXS_cDbySvS6HVjWl7DOpSXYOvHjayKi4lgY"
+SPREADSHEET_ID = "1x8uh0CovXS_cDbySvS6HVjWI7DOpSXYOvHjayKi4lgY"
 TAB_NAME = "Data Trả góp"
 TIMEZONE = ZoneInfo("Asia/Ho_Chi_Minh")
 EMAIL_RECEIVER = "xalo.english.bddept@gmail.com"
