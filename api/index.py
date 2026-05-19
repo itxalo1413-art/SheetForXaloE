@@ -14,7 +14,7 @@ SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 SPREADSHEET_ID = "1x8uh0CovXS_cDbySvS6HVjWI7DOpSXYOvHjayKi4lgY"
 TAB_NAME = "Data Trả góp"
 TIMEZONE = ZoneInfo("Asia/Ho_Chi_Minh")
-EMAIL_RECEIVER = "xalo.english.bddept@gmail.com"
+EMAIL_RECEIVER = "xaloenglishca@gmail.com"
 
 def parse_date(date_str):
     if not date_str: return None
