@@ -2,7 +2,7 @@ import os
 import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import smtplib
 from email.mime.text import MIMEText
@@ -25,12 +25,18 @@ def parse_date(date_str):
             continue
     return None
 
-def send_summary_email(due_list, email_user, email_pass):
+def send_summary_email(due_list, email_user, email_pass, email_type="due"):
     today_str = datetime.now(TIMEZONE).strftime('%d/%m/%Y')
     msg = MIMEMultipart()
     msg['From'] = email_user
     msg['To'] = EMAIL_RECEIVER
-    msg['Subject'] = f"[WIRGROUP] DANH SÁCH THU PHÍ NGÀY {today_str}"
+
+    if email_type == "reminder":
+        msg['Subject'] = f"[WIRGROUP] NHẮC NHỞ TRẢ GÓP SAU 3 NGÀY - {today_str}"
+        heading = f"Danh sách học viên sẽ đến hạn trả góp sau 3 ngày (hôm nay {today_str})"
+    else:
+        msg['Subject'] = f"[WIRGROUP] DANH SÁCH THU PHÍ NGÀY {today_str}"
+        heading = f"Danh sách học viên đến hạn đóng tiền hôm nay ({today_str})"
 
     table_content = ""
     for item in due_list:
@@ -41,7 +47,7 @@ def send_summary_email(due_list, email_user, email_pass):
 
     html = f"""
     <html><body>
-        <h2>Danh sách học viên đến hạn đóng tiền hôm nay ({today_str})</h2>
+        <h2>{heading}</h2>
         <table style='border-collapse: collapse; width: 100%;'>
             <tr style='background-color: #f2f2f2;'>
                 <th style='border:1px solid #ddd; padding:8px;'>Tên học viên</th>
@@ -84,6 +90,7 @@ def check_and_report():
     data = sheet.get_all_values()
     
     today = datetime.now(TIMEZONE).date()
+    reminder_list = []
     due_list = []
 
     for row in data[1:]:
@@ -93,13 +100,26 @@ def check_and_report():
 
         for status, date_str, amount, label in installments:
             if status == "Chưa thanh toán" and date_str:
-                if parse_date(date_str) == today:
-                    due_list.append({"name": name, "label": label, "date": date_str, "amount": amount})
+                due_date = parse_date(date_str)
+                if not due_date:
+                    continue
+                item = {"name": name, "label": label, "date": date_str, "amount": amount}
+                if due_date == today:
+                    due_list.append(item)
+                elif due_date == today + timedelta(days=3):
+                    reminder_list.append(item)
 
+    results = []
+    if reminder_list:
+        send_summary_email(reminder_list, email_user, email_pass, email_type="reminder")
+        results.append(f"Nhac truoc 3 ngay: {len(reminder_list)} hoc vien")
     if due_list:
-        send_summary_email(due_list, email_user, email_pass)
-        return f"Da gui danh sach {len(due_list)} hoc vien."
-    return "Khong co ai den han hom nay."
+        send_summary_email(due_list, email_user, email_pass, email_type="due")
+        results.append(f"Den han hom nay: {len(due_list)} hoc vien")
+
+    if results:
+        return "Da gui mail - " + "; ".join(results)
+    return "Khong co hoc vien can nhac hoac den han hom nay."
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
