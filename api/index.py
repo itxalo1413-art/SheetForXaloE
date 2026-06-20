@@ -32,10 +32,10 @@ def send_summary_email(due_list, email_user, email_pass, email_type="due"):
     msg['To'] = EMAIL_RECEIVER
 
     if email_type == "reminder":
-        msg['Subject'] = f"[WIRGROUP] NHẮC NHỞ TRẢ GÓP SAU 3 NGÀY - {today_str}"
+        msg['Subject'] = f"NHẮC NHỞ TRẢ GÓP SAU 3 NGÀY - {today_str}"
         heading = f"Danh sách học viên sẽ đến hạn trả góp sau 3 ngày (hôm nay {today_str})"
     else:
-        msg['Subject'] = f"[WIRGROUP] DANH SÁCH THU PHÍ NGÀY {today_str}"
+        msg['Subject'] = f"DANH SÁCH THU PHÍ NGÀY {today_str}"
         heading = f"Danh sách học viên đến hạn đóng tiền hôm nay ({today_str})"
 
     table_content = ""
