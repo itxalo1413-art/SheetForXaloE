@@ -32,11 +32,11 @@ def send_summary_email(due_list, email_user, email_pass, email_type="due"):
     msg['To'] = EMAIL_RECEIVER
 
     if email_type == "reminder":
-        msg['Subject'] = f"NHẮC NHỞ TRẢ GÓP SAU 3 NGÀY - {today_str}"
-        heading = f"Danh sách học viên sẽ đến hạn trả góp sau 3 ngày (hôm nay {today_str})"
+        msg['Subject'] = f"NHẮC NHỞ TRẢ GÓP & BÙ PHÍ CỌC SAU 3 NGÀY - {today_str}"
+        heading = f"Danh sách học viên sẽ đến hạn trả góp / bù phí cọc sau 3 ngày (hôm nay {today_str})"
     else:
-        msg['Subject'] = f"DANH SÁCH THU PHÍ NGÀY {today_str}"
-        heading = f"Danh sách học viên đến hạn đóng tiền hôm nay ({today_str})"
+        msg['Subject'] = f"DANH SÁCH THU PHÍ & BÙ PHÍ CỌC NGÀY {today_str}"
+        heading = f"Danh sách học viên đến hạn đóng tiền / bù phí cọc hôm nay ({today_str})"
 
     table_content = ""
     for item in due_list:
@@ -51,7 +51,7 @@ def send_summary_email(due_list, email_user, email_pass, email_type="due"):
         <table style='border-collapse: collapse; width: 100%;'>
             <tr style='background-color: #f2f2f2;'>
                 <th style='border:1px solid #ddd; padding:8px;'>Tên học viên</th>
-                <th style='border:1px solid #ddd; padding:8px;'>Đợt đóng</th>
+                <th style='border:1px solid #ddd; padding:8px;'>Đợt đóng / Nội dung</th>
                 <th style='border:1px solid #ddd; padding:8px;'>Ngày hạn</th>
                 <th style='border:1px solid #ddd; padding:8px;'>Số tiền</th>
             </tr>
@@ -86,17 +86,39 @@ def check_and_report():
     creds_dict = json.loads(creds_json)
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, SCOPE)
     client = gspread.authorize(creds)
-    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(TAB_NAME)
-    data = sheet.get_all_values()
+    spreadsheet = client.open_by_key(SPREADSHEET_ID)
+
+    # Đọc dữ liệu từ sheet "Data Trả góp"
+    try:
+        tg_sheet = spreadsheet.worksheet(TAB_NAME)
+        tg_data = tg_sheet.get_all_values()
+    except Exception as e:
+        print(f"Lỗi đọc sheet '{TAB_NAME}': {e}")
+        tg_data = []
+
+    # Đọc dữ liệu từ sheet "Cọc"
+    try:
+        coc_sheet = spreadsheet.worksheet("Cọc")
+        coc_data = coc_sheet.get_all_values()
+    except Exception as e:
+        print(f"Lỗi đọc sheet 'Cọc': {e}")
+        coc_data = []
     
     today = datetime.now(TIMEZONE).date()
     reminder_list = []
     due_list = []
 
-    for row in data[1:]:
+    # Xử lý dữ liệu "Data Trả góp"
+    for row in tg_data[1:]:
+        if len(row) <= 21:  # Đảm bảo đủ số cột (đến index 21) để tránh IndexError
+            continue
         name = row[2] # Cột C
         # Check 3 lần đóng tiền (Index: L=11, M=12, N=13 | O=14, Q=16, R=17 | S=18, U=20, V=21)
-        installments = [(row[11], row[12], row[13], "Lần 1"), (row[14], row[16], row[17], "Lần 2"), (row[18], row[20], row[21], "Lần 3")]
+        installments = [
+            (row[11], row[12], row[13], "Lần 1"),
+            (row[14], row[16], row[17], "Lần 2"),
+            (row[18], row[20], row[21], "Lần 3")
+        ]
 
         for status, date_str, amount, label in installments:
             if status == "Chưa thanh toán" and date_str:
@@ -108,6 +130,25 @@ def check_and_report():
                     due_list.append(item)
                 elif due_date == today + timedelta(days=3):
                     reminder_list.append(item)
+
+    # Xử lý dữ liệu "Cọc"
+    for row in coc_data[1:]:
+        if len(row) <= 12:  # Đảm bảo đủ số cột (đến index 12 - cột M)
+            continue
+        name = row[2]       # Cột C (Họ tên học viên)
+        amount = row[10]    # Cột K (Bù phí - Số tiền)
+        date_str = row[11]  # Cột L (Bù phí - Ngày)
+        status = row[12]    # Cột M (Trạng thái)
+
+        if status.strip() != "Đã thanh toán" and date_str:
+            due_date = parse_date(date_str)
+            if not due_date:
+                continue
+            item = {"name": name, "label": "Bù phí", "date": date_str, "amount": amount}
+            if due_date == today:
+                due_list.append(item)
+            elif due_date == today + timedelta(days=3):
+                reminder_list.append(item)
 
     results = []
     if reminder_list:
